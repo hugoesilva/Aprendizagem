@@ -27,11 +27,11 @@ accuraciesNB = []
 
 def modelEvaluation(X, y):
 
-    folds = StratifiedKFold(n_splits=10)
+    folds = StratifiedKFold(n_splits=10, random_state = 0, shuffle = True)
 
     KNN_confMatrix = np.zeros((2, 2))
     NB_confMatrix = np.zeros((2, 2))
-
+    emptyMatrices = True
 
     KNNPredictor = KNeighborsClassifier(n_neighbors = 5, metric = 'euclidean', weights = 'uniform')
     NBPredictor = GaussianNB()
@@ -44,33 +44,41 @@ def modelEvaluation(X, y):
         X_train, X_test = X.iloc[train_k], X.iloc[test_k]
         y_train, y_test = y.iloc[train_k], y.iloc[test_k]
         
-        # train and assess
-        
         KNNPredictor.fit(X_train, y_train)
         y_KNNPred = KNNPredictor.predict(X_test)
-
         KNN_auxConfMatrix = confusion_matrix(y_test, y_KNNPred)
+        if emptyMatrices:
 
-        #print(KNN_auxConfMatrix)
+            KNN_confMatrix = KNN_auxConfMatrix
 
-        KNN_confMatrix += KNN_auxConfMatrix
+        else:
+
+            KNN_confMatrix += KNN_auxConfMatrix
+
+        accuraciesKNN.append(metrics.accuracy_score(y_test, y_KNNPred))
         
 
         NBPredictor.fit(X_train, y_train)
         y_NBPred = NBPredictor.predict(X_test)
-
         NB_auxConfMatrix = confusion_matrix(y_test, y_NBPred)
 
-        NB_confMatrix += NB_auxConfMatrix
+        if emptyMatrices:
+
+            NB_confMatrix = NB_auxConfMatrix
+
+        else:
+
+            NB_confMatrix += NB_auxConfMatrix
+
+        emptyMatrices = False
+        accuraciesNB.append(metrics.accuracy_score(y_test, y_NBPred))
 
     return NB_confMatrix, KNN_confMatrix
     
 
 def plot_confusion_matrixes(KNN_confMatrix, NB_confMatrix):
 
-    """ fig, ax = plt.subplots(1, 2, figsize=(10, 5)) """
-
-    ax1 = sns.heatmap(KNN_confMatrix, annot = True, cmap = 'Blues')
+    ax1 = sns.heatmap(KNN_confMatrix, annot = True, fmt = "d", cmap = 'Blues')
 
     ax1.set_title('KNN Confusion Matrix\n\n');
     ax1.set_xlabel('\nPredicted Values')
@@ -82,71 +90,24 @@ def plot_confusion_matrixes(KNN_confMatrix, NB_confMatrix):
 
     plt.show()
 
-    ax2 = sns.heatmap(NB_confMatrix, annot = True, cmap = 'Blues')
+    ax2 = sns.heatmap(NB_confMatrix, annot = True, fmt = "d", cmap = 'Blues')
 
     ax2.set_title('Naive Bayes Confusion Matrix\n\n');
     ax2.set_xlabel('\nPredicted Values')
     ax2.set_ylabel('Actual Values');
 
-
     plt.show()
 
-    """ sns.heatmap(KNN_confMatrix, annot=True, ax=ax[0], fmt='d')
-    ax[0].set_title('KNN')
-    ax[0].set_xlabel('Predicted')
-    ax[0].set_ylabel('True')
+def testHypothesis(accuraciesKNN, accuraciesNB):
 
-    sns.heatmap(NB_confMatrix, annot=True, ax=ax[1], fmt='d')
-    ax[1].set_title('Naive Bayes')
-    ax[1].set_xlabel('Predicted')
-    ax[1].set_ylabel('True')
+    print("KNN accuracies: ", accuraciesKNN)
+    print("NB accuracies: ", accuraciesNB)
 
-    plt.show() """
+    res = stats.ttest_rel(accuraciesKNN, accuraciesNB, alternative = "greater")
 
+    print("KNN > NB, p-value =", res.pvalue)
 
 
 KNN_confMatrix, NB_confMatrix = modelEvaluation(X, y)
 plot_confusion_matrixes(KNN_confMatrix, NB_confMatrix)
-
-#Using scipy, test the hypothesis “𝑘NN is statistically superior to Naïve Bayes regarding accuracy”, asserting whether is true.
-
-#𝐻0: 𝑘NN is not statistically superior to Naïve Bayes regarding accuracy
-#𝐻1: 𝑘NN is statistically superior to Naïve Bayes regarding accuracy
-
-#𝛼 = 0.05
-
-def hypothesisTest(KNN_confMatrix, NB_confMatrix):
-
-    KNN_TP = KNN_confMatrix[0][0]
-    KNN_TN = KNN_confMatrix[1][1]
-    KNN_FN = KNN_confMatrix[0][1]
-    KNN_FP = KNN_confMatrix[1][0]
-
-    NB_TP = NB_confMatrix[0][0]
-    NB_TN = NB_confMatrix[1][1]
-    NB_FN = NB_confMatrix[0][1]
-    NB_FP = NB_confMatrix[1][0]
-
-    KNN_accuracy = (KNN_TP + KNN_TN) / (KNN_TP + KNN_TN + KNN_FN + KNN_FP)
-    NB_accuracy = (NB_TP + NB_TN) / (NB_TP + NB_TN + NB_FN + NB_FP)
-
-    print("KNN Accuracy: ", KNN_accuracy)
-    print("Naive Bayes Accuracy: ", NB_accuracy)
-
-    # 𝐻0: 𝑘NN is not statistically superior to Naïve Bayes regarding accuracy
-    # 𝐻1: 𝑘NN is statistically superior to Naïve Bayes regarding accuracy
-
-    # 𝛼 = 0.05
-
-    # t-test
-    ttest = stats.ttest_rel(KNN_accuracy, NB_accuracy)
-
-    print(ttest)
-
-    if (ttest[1] < 0.05):
-        print("Reject H0")
-    else:
-        print("Accept H0")
-
-
-
+testHypothesis(accuraciesKNN, accuraciesNB)
